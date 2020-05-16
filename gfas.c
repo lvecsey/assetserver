@@ -164,8 +164,6 @@ int main(int argc, char *argv[]) {
       return -1;
     }
 
-    offset = 0;
-    
     while (remaining > 0) {
 
       bytes_read = read(in_fd, buf, 4096);
