@@ -16,7 +16,7 @@ Then fetch a file:
 The above retrieves the file from /mnt/export/images/samplefile.png and saves
 it to the current directory as samplefile.png
 
-In an actual app you could initiate a TCP connection, and run the assetserver protocol to keep the file in memory.
+In an actual app you could initiate a TCP connection, and run the assetserver protocol to keep the file in memory. You can use some of the included files to do this such as gfas_client.h and gfas_client.c
 
 
 
