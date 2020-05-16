@@ -80,8 +80,6 @@ int main(int argc, char *argv[]) {
 
   root_path = argc>1 ? argv[1] : NULL;
 
-  printf("Getting filename length.\n");
-  
   retval = readfile(0, &val, sizeof(uint64_t));
   if (retval != sizeof(uint64_t)) {
     return -1;
