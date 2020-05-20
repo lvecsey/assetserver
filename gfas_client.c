@@ -146,6 +146,8 @@ int gfas_fetch(gfas_client *gfasc, char *filename, gfas_fileprep *prep) {
     return -1;
   }
 
+  val = be64toh(val);
+  
   switch(val) {
 
   case AS_OK:
