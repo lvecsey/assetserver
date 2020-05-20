@@ -71,6 +71,8 @@ int main(int argc, char *argv[]) {
   char *root_path;
 
   ssize_t bytes_written;
+
+  uint64_t cmd;
   
   env_PROTO = getenv("PROTO");
   if (env_PROTO == NULL) {
@@ -171,14 +173,31 @@ int main(int argc, char *argv[]) {
 	  remaining -= retval;
 	  
 	}
+
+	retval = readfile(0, &val, sizeof(uint64_t));
+	if (retval != sizeof(uint64_t)) {
+
+	  send_response(AS_LENFAIL);
+      
+	  return -1;
+
+	}
+
+	cmd = be64toh(val);
+
+	if (cmd == AS_QUIT) {
+
+	  return 0;
 	  
+	}
+	
 
       }
 
     }
       
   }
-    
+
   return 0;
 
 }

@@ -201,6 +201,13 @@ int gfas_fetch(gfas_client *gfasc, char *filename, gfas_fileprep *prep) {
       
     }
 
+    val = htobe64(AS_QUIT);
+    bytes_written = writefile(out_fd, &val, sizeof(uint64_t));
+    if (bytes_written != sizeof(uint64_t)) {
+      perror("write");
+      return -1;
+    }
+    
   }
   
   return 0;
