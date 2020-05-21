@@ -29,9 +29,15 @@
 #include <string.h>
 #include <errno.h>
 
+#include <sys/mman.h>
+
 #include <sys/sendfile.h>
 
+#include <openssl/md5.h>
+
 #include "assetheader.h"
+
+#include "assetrequest.h"
 
 #include "assetresponse.h"
 
@@ -82,100 +88,30 @@ int main(int argc, char *argv[]) {
 
   root_path = argc>1 ? argv[1] : NULL;
 
-  retval = readfile(0, &val, sizeof(uint64_t));
-  if (retval != sizeof(uint64_t)) {
-    return -1;
-  }
-
-  ah.filename_len = be64toh(val);
-
-  memset(ah.filename, 0, sizeof(ah.filename));
-
-  if (ah.filename_len < sizeof(ah.filename)) {
+  for (;;) {
   
-    retval = readfile(0, ah.filename, ah.filename_len);
-    if (retval != ah.filename_len) {
-
-      send_response(AS_LENFAIL);
-      
+    retval = readfile(0, &val, sizeof(uint64_t));
+    if (retval != sizeof(uint64_t)) {
       return -1;
-
     }
 
-    {
+    cmd = be64toh(val);
 
-      char strbuf[PATH_MAX];
+    if (cmd == ASR_GETHASH) {
 
-      char *fn_ptr;
-      
-      struct stat buf;
-      int fd;
-
-      if (root_path != NULL) {
-
-	retval = sprintf(strbuf, "%s/%s", root_path, ah.filename);
-	
-	fn_ptr = strbuf;
-
-      }
-      else {
-	fn_ptr = ah.filename;
-      }
-
-      fd = open(fn_ptr, O_RDONLY);
-      if (fd == -1) {
-
-	send_response(AS_OPENFAIL);
-
+      retval = readfile(0, &val, sizeof(uint64_t));
+      if (retval != sizeof(uint64_t)) {
 	return -1;
-	
       }
 
-      retval = fstat(fd, &buf);
-      if (retval == -1) {
+      ah.filename_len = be64toh(val);
 
-	send_response(AS_STATFAIL);
+      memset(ah.filename, 0, sizeof(ah.filename));
 
-	return -1;
-	
-      }
-
-      send_response(AS_OK);
-
-      {
-
-	off_t offset;
-
-	size_t remaining;
-	
-	offset = 0;
-
-	{
-	  uint64_t sz;
-	  sz = buf.st_size;
-	  val = htobe64(sz);
-	  bytes_written = writefile(1, &val, sizeof(uint64_t));
-	  if (bytes_written != sizeof(uint64_t)) {
-	    return -1;
-	  }
-	}
-	  
-	remaining = buf.st_size;
-
-	while (remaining > 0) {
-	
-	  retval = sendfile(1, fd, &offset, remaining);
-
-	  if (retval == -1) {
-	    return -1;
-	  }
-	  
-	  remaining -= retval;
-	  
-	}
-
-	retval = readfile(0, &val, sizeof(uint64_t));
-	if (retval != sizeof(uint64_t)) {
+      if (ah.filename_len < sizeof(ah.filename)) {
+  
+	retval = readfile(0, ah.filename, ah.filename_len);
+	if (retval != ah.filename_len) {
 
 	  send_response(AS_LENFAIL);
       
@@ -183,21 +119,202 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	cmd = be64toh(val);
+	{
 
-	if (cmd == AS_QUIT) {
+	  char strbuf[PATH_MAX];
 
-	  return 0;
-	  
-	}
+	  char *fn_ptr;
+      
+	  struct stat buf;
+	  int fd;
+
+	  if (root_path != NULL) {
+
+	    retval = sprintf(strbuf, "%s/%s", root_path, ah.filename);
 	
+	    fn_ptr = strbuf;
+
+	  }
+	  else {
+	    fn_ptr = ah.filename;
+	  }
+
+	  fd = open(fn_ptr, O_RDWR);
+	  if (fd == -1) {
+
+	    send_response(AS_OPENFAIL);
+
+	    return -1;
+	
+	  }
+
+	  retval = fstat(fd, &buf);
+	  if (retval == -1) {
+
+	    send_response(AS_STATFAIL);
+
+	    return -1;
+	
+	  }
+
+	  {
+
+	    MD5_CTX ctx;
+
+	    void *m;
+
+	    retval = MD5_Init(&ctx);
+
+	    m = mmap(NULL, buf.st_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	    if (m == MAP_FAILED) {
+	      send_response(AS_MMAPFAIL);
+	    }
+	    
+	    MD5_Update(&ctx, m, buf.st_size);
+
+	    {
+	      unsigned char md5buf[16];
+	      retval = MD5_Final(md5buf, &ctx);
+
+	      retval = send_response(AS_OK);
+
+	      bytes_written = writefile(1, md5buf, sizeof(md5buf));
+	      if (bytes_written != sizeof(md5buf)) {
+		return -1;
+	      }
+	    
+	    }
+
+	  }
+	
+	}
 
       }
 
     }
-      
-  }
+  
+    else if (cmd == ASR_GETFILE) {
+  
+      retval = readfile(0, &val, sizeof(uint64_t));
+      if (retval != sizeof(uint64_t)) {
+	return -1;
+      }
 
+      ah.filename_len = be64toh(val);
+
+      memset(ah.filename, 0, sizeof(ah.filename));
+
+      if (ah.filename_len < sizeof(ah.filename)) {
+  
+	retval = readfile(0, ah.filename, ah.filename_len);
+	if (retval != ah.filename_len) {
+
+	  send_response(AS_LENFAIL);
+      
+	  return -1;
+
+	}
+
+	{
+
+	  char strbuf[PATH_MAX];
+
+	  char *fn_ptr;
+      
+	  struct stat buf;
+	  int fd;
+
+	  if (root_path != NULL) {
+
+	    retval = sprintf(strbuf, "%s/%s", root_path, ah.filename);
+	
+	    fn_ptr = strbuf;
+
+	  }
+	  else {
+	    fn_ptr = ah.filename;
+	  }
+
+	  fd = open(fn_ptr, O_RDONLY);
+	  if (fd == -1) {
+
+	    send_response(AS_OPENFAIL);
+
+	    return -1;
+	
+	  }
+
+	  retval = fstat(fd, &buf);
+	  if (retval == -1) {
+
+	    send_response(AS_STATFAIL);
+
+	    return -1;
+	
+	  }
+
+	  send_response(AS_OK);
+
+	  {
+
+	    off_t offset;
+
+	    size_t remaining;
+	
+	    offset = 0;
+
+	    {
+	      uint64_t sz;
+	      sz = buf.st_size;
+	      val = htobe64(sz);
+	      bytes_written = writefile(1, &val, sizeof(uint64_t));
+	      if (bytes_written != sizeof(uint64_t)) {
+		return -1;
+	      }
+	    }
+	  
+	    remaining = buf.st_size;
+
+	    while (remaining > 0) {
+	
+	      retval = sendfile(1, fd, &offset, remaining);
+
+	      if (retval == -1) {
+		return -1;
+	      }
+	  
+	      remaining -= retval;
+	  
+	    }
+
+	    retval = readfile(0, &val, sizeof(uint64_t));
+	    if (retval != sizeof(uint64_t)) {
+
+	      send_response(AS_LENFAIL);
+      
+	      return -1;
+
+	    }
+
+	    cmd = be64toh(val);
+
+	    if (cmd == AS_QUIT) {
+
+	      return 0;
+	  
+	    }
+	
+
+	  }
+
+	}
+      
+      }
+
+    }
+
+  }
+    
   return 0;
 
 }
