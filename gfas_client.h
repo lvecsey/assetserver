@@ -19,6 +19,10 @@
 #ifndef GFAS_CLIENT_H
 #define GFAS_CLIENT_H
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "networking.h"
 
 #include <stdint.h>
@@ -26,8 +30,12 @@
 typedef struct {
 
   uint64_t state;
-  
+
+#ifdef WINNT
+  SOCKET s;
+#else
   int s;
+#endif
   
   struct sockaddr_in bind_addr, server_addr;
   
@@ -43,6 +51,16 @@ typedef struct {
 
 int gfas_setup(gfas_client *gfasc, char *serverip_port);
 
+int gfas_doconnect(gfas_client *gfasc);
+
 int gfas_fetch(gfas_client *gfasc, char *filename, gfas_fileprep *prep);
+
+int ghas_fillhash(gfas_client *gfasc, char *filename, unsigned char *hashbuf, size_t buf_sz);
+
+int gfas_sendquit(gfas_client *gfasc);
+
+char *hashtostr(unsigned char *hashbuf);
+
+int gfas_cacheretrieve(gfas_client *gfasc, char *assetserver_ipportstr, char *request_str, gfas_fileprep *prep, char *cachedir, mode_t create_filemode);
 
 #endif
